@@ -1,59 +1,59 @@
-//declarative pipeline
 pipeline{
-  agent any  
-  tools {
-    maven "maven3.8.4"
+  agent any
+  tools{
+    maven "maven"
   }
-  triggers {
-  pollSCM '* * * * * '
-}
-  stages {
-    stage('1.CodeClone'){
-      steps{
-          git branch: 'stage', credentialsId: 'GitHubCredentials', url: 'https://github.com/LandmakTechnology/web-app'
+
+    stages{
+      stage("0. Start of Pipeline Job"){
+        steps{
+          sh "echo start of pipeline job"
+        }
       }
-    } 
-    stage('2.mavenBuild'){
-      steps{
-      sh "mvn clean package"
-      } 
+
+      stage("1. Git clone from repo"){
+        steps{
+         sh "echo start of git clone"
+         git branch: 'main', url: 'https://github.com/PortaBell/web-app.git'
+         sh "echo end of git clone"
+        }
+      }
+      
+      stage("2. Build from Maven"){
+        steps{
+          sh "echo start building from Maven"
+          sh "mvn clean package"
+          sh "echo end of build"
+        }  
+      }
+      
+      stage("3. Code Scan"){
+        steps{
+          sh "echo start of code scan"
+          sh "mvn sonar:sonar"
+          sh "echo end of code scan"
+        }  
+      }
+      
+      stage("4. Store Artifacts"){
+        steps{
+           sh "echo Deploy Artifact"
+           sh "mvn deploy"
+        }  
+      }
+      
+      stage("5. Deploying to Tomcat in UAT"){
+        steps{
+           sh "echo start deploying to server in UAT Env"
+           deploy adapters: [tomcat9(credentialsId: 'nick', path: '', url: 'http://35.91.201.141:8080')], contextPath: null, war: 'target/*.war'
+        }  
+      }
+      
+      stage("6. Email Notification"){
+        steps{
+            sh "echo Email Notification to DevOps Team"
+            emailext body: 'The Deployment is Successful', subject: 'Deployment Success', to: 'info@jomacsit.com'
+        }  
+      }
     }
-    stage('3.CodeQuality') {
-      steps{
-      sh "echo reports done"
-      //sh "mvn sonar:sonar"
-      } 
-    }
-    stage('4.uploadToNexus'){
-      steps{
-      sh "echo artifacts uploaded"
-      //sh "mvn deploy"
-      } 
-    }
-    stage('5.Deploy2Tomcat'){
-    steps{
-    sshagent(['32d5fb4f-d92f-4a10-9f12-2738eab55fcc']) {
-    sh "scp -o StrictHostKeyChecking=no target/*war ec2-user@172.31.15.31:/opt/tomcat9/webapps/app"
 }
-    
-} 
-    }
-    }
-  post{
-    always {
-     mail bcc: 'td-app@gmail.com', body: '''Build complete 
-
-Landmark Technologies''', cc: 'td-app@gmail.com', from: '', replyTo: '', subject: 'Build done', to: 'td-app@gmail.com'
-    } 
-    failure {
-    mail bcc: 'td-app@gmail.com', body: '''Build complete 
-
-Landmark Technologies''', cc: 'td-app@gmail.com', from: '', replyTo: '', subject: 'Build failed', to: 'td-app@gmail.com'
-    }
-    success {
-    mail bcc: 'td-app@gmail.com', body: '''Build complete 
-
-JOMACS IT SOLUTIONS ''', cc: 'td-app@gmail.com', from: '', replyTo: '', subject: 'Build succeed', to: 'td-app@gmail.com'
-    }
-  }  
-  }
